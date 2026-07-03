@@ -110,9 +110,22 @@ function setStatus(type, msg) {
 
 /* 时间格式化：
    2026:07:03 12:12:12 → 2026/07/03 12:12:12 */
-function formatTime(str) {
-    if (!str) return "-";
-    return str.replace(/:/g, "/");
+function formatTime(value) {
+    if (!value) return "-";
+
+    try {
+        const str = String(value);
+
+        // EXIF格式：2026:07:03 12:12:12
+        if (str.includes(":")) {
+            return str.replace(/^(\d{4}):(\d{2}):(\d{2})/, "$1/$2/$3")
+                      .replace(/:/g, "/");
+        }
+
+        return str;
+    } catch (e) {
+        return "-";
+    }
 }
 
 function setText(id, value) {
