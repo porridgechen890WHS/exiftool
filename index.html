@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>EXIF DateTimeOriginal 读取器</title>
+</head>
+
+<body>
+    <h2>选择照片读取拍摄时间</h2>
+
+    <!-- 文件选择器：用户从本地选择图片 -->
+    <input type="file" id="fileInput" accept="image/*">
+
+    <p><b>拍摄时间（DateTimeOriginal）：</b></p>
+    <div id="result">尚未选择图片</div>
+
+    <!-- 引入 exifr 库（用于解析 EXIF） -->
+    <script src="https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js"></script>
+
+    <script>
+        // 获取页面元素
+        const fileInput = document.getElementById("fileInput");
+        const resultDiv = document.getElementById("result");
+
+        // 监听用户选择文件
+        fileInput.addEventListener("change", async (event) => {
+
+            // 获取用户选择的文件
+            const file = event.target.files[0];
+
+            // 如果没有选择文件，直接返回
+            if (!file) {
+                resultDiv.innerText = "没有选择文件";
+                return;
+            }
+
+            try {
+                // 使用 exifr 解析图片 EXIF 信息
+                const exif = await exifr.parse(file);
+
+                // 提取拍摄时间字段 DateTimeOriginal
+                const time = exif?.DateTimeOriginal;
+
+                // 显示结果
+                if (time) {
+                    resultDiv.innerText = "拍摄时间：" + time;
+                } else {
+                    resultDiv.innerText = "未找到 DateTimeOriginal（可能是截图或无EXIF图片）";
+                }
+
+                // 控制台输出完整 EXIF（调试用）
+                console.log("EXIF数据：", exif);
+
+            } catch (error) {
+                // 解析失败处理
+                console.error(error);
+                resultDiv.innerText = "EXIF解析失败";
+            }
+        });
+    </script>
+</body>
+</html>
