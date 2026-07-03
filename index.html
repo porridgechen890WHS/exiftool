@@ -2,61 +2,100 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>EXIF DateTimeOriginal 读取器</title>
+    <title>EXIF 查看器</title>
+
+    <style>
+        /* 页面整体居中 */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f5f5f5;
+        }
+
+        /* 主容器 */
+        .container {
+            width: 90%;
+            max-width: 500px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* 按钮变大 */
+        input[type="file"] {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+        }
+
+        /* 输出区域 */
+        .item {
+            margin-top: 12px;
+            font-size: 16px;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+    </style>
 </head>
 
 <body>
-    <h2>选择照片读取拍摄时间</h2>
 
-    <!-- 文件选择器：用户从本地选择图片 -->
+<div class="container">
+    <h2>EXIF 查看器</h2>
+
     <input type="file" id="fileInput" accept="image/*">
 
-    <p><b>拍摄时间（DateTimeOriginal）：</b></p>
-    <div id="result">尚未选择图片</div>
+    <div class="item"><span class="label">拍摄时间：</span><span id="t1">-</span></div>
+    <div class="item"><span class="label">拍摄时间(系统)：</span><span id="t2">-</span></div>
+    <div class="item"><span class="label">数字化时间：</span><span id="t3">-</span></div>
+    <div class="item"><span class="label">相机型号：</span><span id="camera">-</span></div>
+    <div class="item"><span class="label">GPS：</span><span id="gps">-</span></div>
 
-    <!-- 引入 exifr 库（用于解析 EXIF） -->
-    <script src="https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js"></script>
+</div>
 
-    <script>
-        // 获取页面元素
-        const fileInput = document.getElementById("fileInput");
-        const resultDiv = document.getElementById("result");
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js"></script>
 
-        // 监听用户选择文件
-        fileInput.addEventListener("change", async (event) => {
+<script>
+const fileInput = document.getElementById("fileInput");
 
-            // 获取用户选择的文件
-            const file = event.target.files[0];
+// 工具：时间格式化 2026:07:03 12:12:12 → 2026/07/03 12:12:12
+function formatTime(str) {
+    if (!str) return "-";
+    return str.replace(/:/g, "/").replace(/(\d{4}\/\d{2}\/\d{2})\/(\d{2}:\d{2}:\d{2})/, "$1 $2");
+}
 
-            // 如果没有选择文件，直接返回
-            if (!file) {
-                resultDiv.innerText = "没有选择文件";
-                return;
-            }
+fileInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-            try {
-                // 使用 exifr 解析图片 EXIF 信息
-                const exif = await exifr.parse(file);
+    const exif = await exifr.parse(file);
 
-                // 提取拍摄时间字段 DateTimeOriginal
-                const time = exif?.DateTimeOriginal;
+    // 时间
+    document.getElementById("t1").innerText = formatTime(exif?.DateTimeOriginal);
+    document.getElementById("t2").innerText = formatTime(exif?.DateTime);
+    document.getElementById("t3").innerText = formatTime(exif?.DateTimeDigitized);
 
-                // 显示结果
-                if (time) {
-                    resultDiv.innerText = "拍摄时间：" + time;
-                } else {
-                    resultDiv.innerText = "未找到 DateTimeOriginal（可能是截图或无EXIF图片）";
-                }
+    // 相机
+    document.getElementById("camera").innerText = exif?.Model || "-";
 
-                // 控制台输出完整 EXIF（调试用）
-                console.log("EXIF数据：", exif);
+    // GPS
+    if (exif?.latitude && exif?.longitude) {
+        document.getElementById("gps").innerText =
+            exif.latitude.toFixed(6) + ", " + exif.longitude.toFixed(6);
+    } else {
+        document.getElementById("gps").innerText = "-";
+    }
 
-            } catch (error) {
-                // 解析失败处理
-                console.error(error);
-                resultDiv.innerText = "EXIF解析失败";
-            }
-        });
-    </script>
+    console.log(exif);
+});
+</script>
+
 </body>
 </html>
