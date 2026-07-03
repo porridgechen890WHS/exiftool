@@ -1,4 +1,3 @@
-<!-- version: 20260703-01 -->
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -6,7 +5,6 @@
     <title>EXIF 查看器</title>
 
     <style>
-        /* 页面整体居中 */
         body {
             margin: 0;
             font-family: Arial, sans-serif;
@@ -17,31 +15,57 @@
             background: #f5f5f5;
         }
 
-        /* 主容器 */
         .container {
             width: 90%;
-            max-width: 500px;
+            max-width: 520px;
             background: white;
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        /* 按钮变大 */
-        input[type="file"] {
-            width: 100%;
-            padding: 15px;
-            font-size: 16px;
+        h2 {
+            margin-top: 0;
         }
 
-        /* 输出区域 */
-        .item {
+        /* 大按钮 */
+        .file-btn {
+            display: block;
+            width: 100%;
+            padding: 18px;
+            font-size: 18px;
+            text-align: center;
+            background: #007aff;
+            color: white;
+            border-radius: 10px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        #status {
             margin-top: 12px;
-            font-size: 16px;
+            font-size: 14px;
+        }
+
+        .item {
+            margin-top: 10px;
+            font-size: 15px;
         }
 
         .label {
             font-weight: bold;
+        }
+
+        /* 缩略图 */
+        #preview {
+            width: 100%;
+            margin-top: 12px;
+            border-radius: 10px;
+            display: none;
         }
     </style>
 </head>
@@ -51,50 +75,114 @@
 <div class="container">
     <h2>EXIF 查看器</h2>
 
+    <label class="file-btn" for="fileInput">
+        选择照片
+    </label>
+
     <input type="file" id="fileInput" accept="image/*">
 
+    <div id="status"></div>
+
+    <img id="preview">
+
     <div class="item"><span class="label">拍摄时间：</span><span id="t1">-</span></div>
-    <div class="item"><span class="label">拍摄时间(系统)：</span><span id="t2">-</span></div>
+    <div class="item"><span class="label">系统时间：</span><span id="t2">-</span></div>
     <div class="item"><span class="label">数字化时间：</span><span id="t3">-</span></div>
     <div class="item"><span class="label">相机型号：</span><span id="camera">-</span></div>
     <div class="item"><span class="label">GPS：</span><span id="gps">-</span></div>
-
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js"></script>
+<!-- exifr -->
+<script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
 
 <script>
 const fileInput = document.getElementById("fileInput");
+const statusEl = document.getElementById("status");
+const preview = document.getElementById("preview");
 
-// 工具：时间格式化 2026:07:03 12:12:12 → 2026/07/03 12:12:12
+function setStatus(type, msg) {
+    statusEl.innerText = msg;
+
+    if (type === "ok") statusEl.style.color = "green";
+    else if (type === "warn") statusEl.style.color = "#b58900";
+    else statusEl.style.color = "red";
+}
+
+/* 时间格式化：
+   2026:07:03 12:12:12 → 2026/07/03 12:12:12 */
 function formatTime(str) {
     if (!str) return "-";
-    return str.replace(/:/g, "/").replace(/(\d{4}\/\d{2}\/\d{2})\/(\d{2}:\d{2}:\d{2})/, "$1 $2");
+    return str.replace(/:/g, "/");
+}
+
+function setText(id, value) {
+    document.getElementById(id).innerText = value || "-";
+}
+
+/* 显示缩略图 */
+function showPreview(file) {
+    const url = URL.createObjectURL(file);
+    preview.src = url;
+    preview.style.display = "block";
+}
+
+/* exifr 是否加载 */
+if (typeof exifr === "undefined") {
+    setStatus("error", "exifr 未加载成功（CDN 失败）");
+} else {
+    setStatus("ok", "准备就绪");
 }
 
 fileInput.addEventListener("change", async (e) => {
     const file = e.target.files[0];
-    if (!file) return;
 
-    const exif = await exifr.parse(file);
-
-    // 时间
-    document.getElementById("t1").innerText = formatTime(exif?.DateTimeOriginal);
-    document.getElementById("t2").innerText = formatTime(exif?.DateTime);
-    document.getElementById("t3").innerText = formatTime(exif?.DateTimeDigitized);
-
-    // 相机
-    document.getElementById("camera").innerText = exif?.Model || "-";
-
-    // GPS
-    if (exif?.latitude && exif?.longitude) {
-        document.getElementById("gps").innerText =
-            exif.latitude.toFixed(6) + ", " + exif.longitude.toFixed(6);
-    } else {
-        document.getElementById("gps").innerText = "-";
+    if (!file) {
+        setStatus("warn", "未选择文件");
+        return;
     }
 
-    console.log(exif);
+    // 显示缩略图
+    showPreview(file);
+
+    try {
+        setStatus("ok", "正在解析 EXIF...");
+
+        const exif = await exifr.parse(file);
+
+        if (!exif) {
+            setStatus("error", "无法解析 EXIF（图片可能不支持或无 EXIF）");
+            return;
+        }
+
+        /* 时间 */
+        setText("t1", formatTime(exif.DateTimeOriginal));
+        setText("t2", formatTime(exif.DateTime));
+        setText("t3", formatTime(exif.DateTimeDigitized));
+
+        /* 相机 */
+        setText("camera", exif.Model);
+
+        /* GPS */
+        if (exif.latitude && exif.longitude) {
+            setText("gps",
+                exif.latitude.toFixed(6) + ", " + exif.longitude.toFixed(6)
+            );
+        } else {
+            setText("gps", "-");
+        }
+
+        if (exif.DateTimeOriginal || exif.DateTime) {
+            setStatus("ok", "解析成功");
+        } else {
+            setStatus("warn", "无 EXIF 时间信息（可能是截图或压缩图片）");
+        }
+
+        console.log("EXIF:", exif);
+
+    } catch (err) {
+        console.error(err);
+        setStatus("error", "EXIF解析失败：" + err.message);
+    }
 });
 </script>
 
